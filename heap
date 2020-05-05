@@ -1,0 +1,22 @@
+#include<Arduino.h>
+const int l = 3 , g = 2; 
+int M[l][g] {{1,2},{3,4},{7,8}};
+int buf = M[0][0];
+int deg = 0; 
+int volt = 0; 
+// эта функция возвращает ваксимальное значение "напряжения" и соответствующий ему угол 
+void serch_max(int arr[][g], const  int size, int * zdeg, int * zvolt){
+  for (int i = 0; i < size; i++)
+  {
+    if(arr[i][1] > buf){
+      (*zdeg) = arr[i][0];
+      (*zvolt)= arr[i][1];
+    }
+  }
+}
+void setup(){
+  Serial.begin(9600);
+}
+void loop(){
+fd(M,l,&deg,&volt);
+}

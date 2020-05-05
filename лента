@@ -1,0 +1,218 @@
+#define PIN 13        // пин DI
+#define NUM_LEDS 110  // число диодов
+#include "Adafruit_NeoPixel.h"
+const int xx = 28;
+int arr[xx] {4,5,7,8,14,17,20,25,31,37,38,40,40,49,51,60,62,71,73,82,83,84,93,94,95,104,105,106};
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
+void setup() {
+  strip.begin();
+  strip.setBrightness(50);    // яркость, от 0 до 255
+  strip.clear();                          // очистить
+  strip.show();                           // отправить на ленту
+}
+void loop() {
+  for(int i = 0; i <xx ; i++){
+    strip.setPixelColor(arr[i], 0xff0000);
+    strip.show();
+    delay(10);
+  }
+}
+
+#include <Arduino.h>
+#include<EEPROM.h>
+#include<Time.h>
+#include<TimeLib.h>
+// #include<rtc_clock.h>
+#define analog_pin 0
+//================================
+const int xt = 16;
+int  c = 3 ;
+int m[xt][2];
+int xuevina = 0, flag = 1;
+byte ml = 0 , nl = 1; 
+//================================
+int signalPin7 = 7;
+int motorPin2 = 9; 
+int motorPin3 = 10; 
+int motorPin4 = 11; 
+int motorPin1 = 8;
+int v = 0 ;
+int x = 30, x2 = 30, i2= 0;
+bool w = true; 
+long motorSpeed = 2000;
+//колво шагов для одного полного поворота на 360 //20
+const int countsperrev = 512 ; 
+// счетчик шагов 0
+int count = 0; 
+int buf = m[0][1];
+int deg = 0,volt = 0 , dego = 0, volto = 0 ; 
+int y = 0, xy = 0;
+int lookup[8] = {B01000, B01100, B00100, B00110, B00010, B00011, B00001, B01001};
+void setOutput(int out)
+{
+  digitalWrite(motorPin1, bitRead(lookup[out], 0));
+  digitalWrite(motorPin2, bitRead(lookup[out], 1));
+  digitalWrite(motorPin3, bitRead(lookup[out], 2));
+  digitalWrite(motorPin4, bitRead(lookup[out], 3));
+}
+// функция поворачивает мотор против часовой стрелки.
+void anticlockwise()
+{
+  for(int i = 0; i < 8; i++)
+  {
+    setOutput(i);
+    delayMicroseconds(motorSpeed);
+  }
+}
+// функция поворачивает мотор по часовой стрелке.
+void clockwise()
+{
+  for(int i = 7; i >= 0; i--)
+  {
+    setOutput(i);
+    delayMicroseconds(motorSpeed);
+  }
+}  
+//принудительная остановка поворота 
+void control(){
+  digitalWrite(motorPin1, LOW);
+  digitalWrite(motorPin2, LOW);
+  digitalWrite(motorPin3, LOW);
+  digitalWrite(motorPin4, LOW);
+ 
+}
+
+/*фун отвечает за определение поворота по часовой или против
+и заполнение массива данными */ 
+void cheking_fillingarrey(int arr[][2], int * ccount ){
+  while (true){
+    if(EEPROM.read(1) == 0){
+      if((*ccount) < countsperrev ){
+        clockwise(); 
+        (*ccount)++; 
+        if((*ccount) == x){
+          arr[i2][0] = x;
+          arr[i2][1] = analogRead(analog_pin);
+          i2++; 
+          x = x + 30;
+        }
+      }
+      else{ 
+        control();
+        EEPROM.write(1, 1);
+        break;
+      }
+    }
+    else if (EEPROM.read(1) == 1){
+      if((*ccount) < countsperrev){
+        anticlockwise(); 
+        (*ccount)++; 
+        if((*ccount) == x){
+          arr[i2][0] = x;
+          arr[i2][1] = analogRead(analog_pin);
+          i2++; 
+          x = x + 30;
+        }
+      }
+      else{ 
+        control();
+        EEPROM.write(1, 0);
+        break;
+      }
+    }
+  }
+}
+
+// эта функция возвращает ваксимальное значение "напряжения" и соответствующий ему угол 
+void serch_max(int arr[][2], const  int size, int * zdeg, int * zvolt){
+  for (int i = 0; i < size; i++)
+  {
+    if(arr[i][1] > buf){
+      buf = arr[i][1];
+      (*zdeg) = arr[i][0];
+      (*zvolt)= arr[i][1];
+    }
+  }
+}
+//звуковой сигнал 
+void sig(int del){
+  while (true){
+    tone(signalPin7,1000);
+    delay (del);
+    break;
+  }
+  noTone(signalPin7);
+}
+// доворот на наилучшую освещенность 
+void turnonangle(int needANG){
+  if(EEPROM.read(1) == 1 ){
+    if(y != needANG){
+        anticlockwise(); 
+        y++; 
+        Serial.println("ff");  
+    }
+    else{
+      control(); 
+      ml = 1;
+    } 
+  }
+  else if (EEPROM.read(1) == 0 ){
+    if(y != needANG){
+        clockwise(); 
+        y++;
+        Serial.println("fff");  
+    }
+    else{
+      control();
+      ml = 1; 
+    }  
+  }
+} 
+
+//-------------------------------------------------- 
+void setup(){
+// declare the motor pins as outputs.
+pinMode(motorPin1, OUTPUT);
+pinMode(motorPin2, OUTPUT);
+pinMode(motorPin3, OUTPUT);
+pinMode(motorPin4, OUTPUT);
+pinMode(signalPin7, OUTPUT);  
+Serial.begin(9600);
+}
+
+void loop(){
+  while (flag == 1)
+  {
+    if(count<countsperrev){
+    cheking_fillingarrey(m, &count);
+    }
+    else if (count == countsperrev)
+    {
+      serch_max(m,xt,&deg,&volt); 
+      flag = 0;
+    }
+  }
+  sig(1000);
+  while (ml!= 1)
+  {
+    xy = count - deg;
+    turnonangle(xy); 
+    adjustTime(0);   
+  }
+Serial.println(now());
+
+  if (second() >= 20 ){
+    count = 0; 
+    y = 0;
+    Serial.println("flag");
+    turnonangle(30);
+    
+    // if (analogRead(analog_pin) < volt){
+     
+    //   
+      
+    // }
+  }
+}
+
+
